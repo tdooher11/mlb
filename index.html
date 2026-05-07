@@ -593,6 +593,22 @@ const PARK_FACTORS = {
 
 const MLB_BASE = 'https://statsapi.mlb.com/api/v1';
 
+// ── Venue name normalization (API names → canonical names in our data) ────
+const VENUE_ALIASES = {
+  'Rate Field': 'Guaranteed Rate Field',
+  'Guaranteed Rate Field': 'Guaranteed Rate Field',
+  'UNIQLO Field at Dodger Stadium': 'Dodger Stadium',
+  'Oriole Park at Camden Yards': 'Camden Yards',
+  'Sutter Health Park': 'Sutter Health Park',
+  'LoanDepot Park': 'loanDepot park',
+  'loandepot park': 'loanDepot park',
+  'Estadio Alfredo Harp Helú': 'Estadio Alfredo Harp Helú',
+};
+
+function normalizeVenue(name) {
+  return VENUE_ALIASES[name] || name;
+}
+
 // ── Stadium coordinates & outfield bearing (home plate → CF, clockwise from N) ──
 const STADIUM_DATA = {
   'Yankee Stadium':           { lat: 40.8296,  lon: -73.9262,  bearing: 135, dome: false },
@@ -728,7 +744,7 @@ async function loadPicks() {
 
   await Promise.all(games.map(async (game) => {
     const gameId = game.gamePk;
-    const venue = game.venue?.name || 'Unknown Venue';
+    const venue = normalizeVenue(game.venue?.name || 'Unknown Venue');
     const parkFactor = PARK_FACTORS[venue] || 1.0;
     const gameTime = game.gameDate ? new Date(game.gameDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
 
@@ -842,7 +858,7 @@ async function loadPicks() {
     const slg = parseFloat(s.slg) || Math.max(0, ops - obp);
     const iso = Math.max(0, slg - avg);
 
-    if (pa < 80) continue; // skip players with too few PAs
+    if (pa < 120) continue;
 
     const hrRate = pa > 0 ? hr / pa : 0;
 
