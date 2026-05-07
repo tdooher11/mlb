@@ -327,6 +327,9 @@
     text-transform: uppercase;
   }
   .stat-cell .s-val.highlight { color: var(--green); }
+  .stat-cell .s-val.hr-green { color: var(--green); }
+  .stat-cell .s-val.hr-yellow { color: #f5d63a; }
+  .stat-cell .s-val.hr-red { color: var(--red); }
 
   /* Factors */
   .card-factors {
@@ -812,7 +815,7 @@ function renderPicks(picks) {
       </div>
       <div class="card-stats">
         <div class="stat-cell">
-          <div class="s-val ${pick.stats.hr >= 15 ? 'highlight' : ''}">${pick.stats.hr}</div>
+          <div class="s-val ${pick.stats.hr >= 15 ? 'hr-green' : pick.stats.hr >= 8 ? 'hr-yellow' : 'hr-red'}">${pick.stats.hr}</div>
           <div class="s-lbl">HR</div>
         </div>
         <div class="stat-cell">
