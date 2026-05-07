@@ -761,10 +761,11 @@ async function loadPicks() {
     const hr = parseInt(s.homeRuns) || 0;
     const ab = parseInt(s.atBats) || 0;
     const hits = parseInt(s.hits) || 0;
+    const avg = parseFloat(s.avg) || 0;
     const slg = parseFloat(s.sluggingPercentage) || 0;
-    const iso = parseFloat(s.isolatedPower) || slg - (parseFloat(s.avg) || 0);
+    const iso = Math.max(0, slg - avg); // compute directly; API isolatedPower field is unreliable
 
-    if (pa < 30) continue; // skip players with too few PAs
+    if (pa < 80) continue; // skip players with too few PAs
 
     const hrRate = pa > 0 ? hr / pa : 0;
 
@@ -784,7 +785,6 @@ async function loadPicks() {
 
     const score = Math.min(Math.round(rawScore), 99);
 
-    const avg = parseFloat(s.avg) || 0;
     const obp = parseFloat(s.obp) || 0;
     const ops = parseFloat(s.ops) || 0;
 
