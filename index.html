@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Picks — MLB HR Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e222c;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #7a7f90;
+    --accent: #f5a623;
+    --accent2: #e8513a;
+    --green: #3ecf8e;
+    --blue: #4fa3e8;
+    --red: #e8513a;
+    --font-display: 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Header */
+  header {
+    padding: 2rem 2rem 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: #fff;
+    line-height: 1;
+  }
+  .logo-text span { color: var(--accent); }
+  .header-meta {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: right;
+  }
+  #date-display {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Controls */
+  .controls {
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .pill-group {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+  .pill {
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    font-family: var(--font-body);
+  }
+  .pill.active {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .controls-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .refresh-btn:hover { background: var(--surface2); }
+  .refresh-icon { font-size: 14px; display: inline-block; transition: transform 0.5s; }
+  .refresh-btn.spinning .refresh-icon { animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Summary bar */
+  .summary-bar {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .summary-stat {
+    flex: 1;
+    padding: 0.9rem 1.25rem;
+    background: var(--bg);
+    min-width: 120px;
+  }
+  .summary-stat .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .summary-stat .value {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .summary-stat .value.accent { color: var(--accent); }
+  .summary-stat .value.green { color: var(--green); }
+
+  /* Main layout */
+  main {
+    padding: 1.5rem 2rem;
+    max-width: 1400px;
+  }
+
+  /* State messages */
+  #state-msg {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: var(--muted);
+  }
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  /* Grid */
+  #picks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+  }
+
+  /* Pick card */
+  .pick-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.15s;
+    animation: fadeUp 0.3s ease both;
+    position: relative;
+  }
+  .pick-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .pick-card.tier-1 { border-color: rgba(245,166,35,0.35); }
+  .pick-card.tier-1::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent);
+  }
+  .pick-card.tier-2::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: var(--blue);
+  }
+
+  .card-header {
+    padding: 0.9rem 1rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .player-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .player-info { flex: 1; min-width: 0; }
+  .player-name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.1;
+  }
+  .player-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .score-badge {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .score-badge .score-num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .score-badge .score-lbl {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .score-badge.hot { background: rgba(245,166,35,0.15); color: var(--accent); border: 1px solid rgba(245,166,35,0.3); }
+  .score-badge.warm { background: rgba(79,163,232,0.12); color: var(--blue); border: 1px solid rgba(79,163,232,0.25); }
+  .score-badge.cool { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  /* Stats row */
+  .card-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-cell {
+    background: var(--surface);
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+  }
+  .stat-cell .s-val {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .stat-cell .s-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .stat-cell .s-val.highlight { color: var(--green); }
+
+  /* Factors */
+  .card-factors {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .factor-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .factor-tag.pos { background: rgba(62,207,142,0.1); color: var(--green); border: 1px solid rgba(62,207,142,0.2); }
+  .factor-tag.neg { background: rgba(232,81,58,0.1); color: var(--red); border: 1px solid rgba(232,81,58,0.18); }
+  .factor-tag.neu { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+  /* Matchup footer */
+  .card-footer {
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .matchup-text { font-size: 12px; color: var(--muted); }
+  .matchup-text strong { color: var(--text); font-weight: 500; }
+  .game-time { font-size: 12px; color: var(--muted); }
+
+  /* No games */
+  .no-games {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .no-games h2 { font-family: var(--font-display); font-size: 28px; color: var(--text); margin-bottom: 0.5rem; }
+
+  /* Error */
+  .error-box {
+    background: rgba(232,81,58,0.08);
+    border: 1px solid rgba(232,81,58,0.2);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    color: var(--red);
+    max-width: 500px;
+    margin: 4rem auto;
+    text-align: center;
+  }
+
+  /* Section header */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    header { padding: 1.25rem 1rem 1rem; }
+    .controls { padding: 0.75rem 1rem; }
+    main { padding: 1rem; }
+    .summary-bar { flex-wrap: wrap; }
+    .summary-stat { min-width: 50%; }
+  }
+
+  /* Tooltip */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2a2f3e;
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .disclaimer {
+    padding: 1.25rem 2rem;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚾</div>
+    <div>
+      <div class="logo-text">POWER <span>PICKS</span></div>
+      <div style="font-size:11px; color: var(--muted); margin-top:2px; font-family: var(--font-body);">MLB Home Run Predictor</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div id="date-display">Loading...</div>
+    <div style="margin-top:3px;">Data: MLB Stats API</div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="pill-group" id="sort-group">
+    <button class="pill active" data-sort="score">Score</button>
+    <button class="pill" data-sort="hr">HR/Season</button>
+    <button class="pill" data-sort="avg">Avg HR Rate</button>
+  </div>
+  <div class="pill-group" id="filter-group">
+    <button class="pill active" data-filter="all">All</button>
+    <button class="pill" data-filter="hot">🔥 Top Picks</button>
+  </div>
+  <div class="controls-right">
+    <button class="refresh-btn" id="refresh-btn">
+      <span class="refresh-icon">↻</span> Refresh
+    </button>
+  </div>
+</div>
+
+<div class="summary-bar" id="summary-bar" style="display:none">
+  <div class="summary-stat">
+    <div class="label">Games Today</div>
+    <div class="value accent" id="sum-games">—</div>
+  </div>
+  <div class="summary-stat">
+    <div class="label">Players Analyzed</div>
+    <div class="value" id="sum-players">—</div>
+  </div>
+  <div class="summary-stat">
+    <div class="label">Top Pick Score</div>
+    <div class="value green" id="sum-top">—</div>
+  </div>
+  <div class="summary-stat">
+    <div class="label">Avg Score</div>
+    <div class="value" id="sum-avg">—</div>
+  </div>
+</div>
+
+<main>
+  <div id="state-msg">
+    <div class="spinner"></div>
+    <div>Loading today's games...</div>
+  </div>
+  <div id="picks-container" style="display:none">
+    <div class="section-header">
+      <span class="section-title" id="section-label">Today's Picks</span>
+      <div class="section-line"></div>
+      <span style="font-size:12px; color:var(--muted)" id="picks-count"></span>
+    </div>
+    <div id="picks-grid"></div>
+  </div>
+</main>
+
+<div class="disclaimer">
+  ⚠️ For entertainment only. Predictions are based on statistical models using current season data from the MLB Stats API.
+  Not financial or betting advice. Stats update on page load.
+</div>
+
+<script>
+// ── Ballpark HR factors (park factor relative to 1.0) ──────────────────────
+const PARK_FACTORS = {
+  'Great American Ball Park': 1.18,  // CIN
+  'Coors Field': 1.20,               // COL
+  'Minute Maid Park': 1.10,          // HOU
+  'Citizens Bank Park': 1.13,        // PHI
+  'Yankee Stadium': 1.10,            // NYY
+  'Globe Life Field': 1.08,          // TEX
+  'Comerica Park': 0.91,             // DET
+  'Oracle Park': 0.88,               // SF
+  'Petco Park': 0.89,                // SD
+  'T-Mobile Park': 0.90,             // SEA
+  'Kauffman Stadium': 0.93,          // KC
+  'Dodger Stadium': 0.98,            // LAD
+  'Truist Park': 1.05,               // ATL
+  'American Family Field': 1.06,     // MIL
+  'Busch Stadium': 0.95,             // STL
+  'Camden Yards': 1.09,              // BAL
+  'PNC Park': 0.93,                  // PIT
+  'Wrigley Field': 1.01,             // CHC
+  'Guaranteed Rate Field': 1.04,     // CWS
+  'Fenway Park': 0.97,               // BOS
+  'Target Field': 0.96,              // MIN
+  'Tropicana Field': 0.95,           // TB
+  'loanDepot park': 0.92,            // MIA
+  'Citi Field': 0.94,                // NYM
+  'Rogers Centre': 1.03,             // TOR
+  'Angel Stadium': 0.97,             // LAA
+  'Oakland Coliseum': 0.95,          // OAK
+  'Chase Field': 1.05,               // ARI
+  'Nationals Park': 1.02,            // WSH
+  'Progressive Field': 0.98,        // CLE
+};
+
+const MLB_BASE = 'https://statsapi.mlb.com/api/v1';
+
+// ── Date utils ────────────────────────────────────────────────────────────
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function fmtDisplayDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+// ── Fetch helpers ─────────────────────────────────────────────────────────
+async function apiFetch(path) {
+  const res = await fetch(MLB_BASE + path);
+  if (!res.ok) throw new Error(`MLB API error: ${res.status}`);
+  return res.json();
+}
+
+// ── Main data pipeline ────────────────────────────────────────────────────
+async function loadPicks() {
+  const date = todayStr();
+  document.getElementById('date-display').textContent = fmtDisplayDate(date);
+
+  const schedData = await apiFetch(`/schedule?sportId=1&date=${date}&hydrate=probablePitcher,venue,lineups`);
+  const games = schedData.dates?.[0]?.games || [];
+
+  if (!games.length) {
+    setMsg('');
+    document.getElementById('picks-container').style.display = 'none';
+    document.getElementById('state-msg').innerHTML = `
+      <div class="no-games">
+        <h2>No Games Today</h2>
+        <p>Check back on a game day.</p>
+      </div>`;
+    document.getElementById('state-msg').style.display = 'block';
+    return [];
+  }
+
+  // Fetch season stats for all batters in all lineups (or rosters if no lineups)
+  const playerMap = {};
+  const gameMetaMap = {};
+
+  await Promise.all(games.map(async (game) => {
+    const gameId = game.gamePk;
+    const venue = game.venue?.name || 'Unknown Venue';
+    const parkFactor = PARK_FACTORS[venue] || 1.0;
+    const gameTime = game.gameDate ? new Date(game.gameDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
+
+    const awayTeam = game.teams?.away?.team;
+    const homeTeam = game.teams?.home?.team;
+    const awayPitcher = game.teams?.away?.probablePitcher;
+    const homePitcher = game.teams?.home?.probablePitcher;
+
+    // Try to get rosters for both teams
+    const [awayRoster, homeRoster] = await Promise.all([
+      apiFetch(`/teams/${awayTeam?.id}/roster?rosterType=active`).catch(() => ({ roster: [] })),
+      apiFetch(`/teams/${homeTeam?.id}/roster?rosterType=active`).catch(() => ({ roster: [] })),
+    ]);
+
+    const processBatters = (roster, opposingPitcher, myTeam, opponentTeam, atHome) => {
+      for (const entry of roster.roster || []) {
+        if (entry.position?.type === 'Pitcher') continue;
+        const pid = entry.person?.id;
+        if (!pid || playerMap[pid]) continue;
+        playerMap[pid] = {
+          id: pid,
+          name: entry.person?.fullName || 'Unknown',
+          team: myTeam?.name || '',
+          teamAbbr: myTeam?.abbreviation || '',
+          position: entry.position?.abbreviation || '?',
+          opposingPitcher: opposingPitcher || null,
+          venue,
+          parkFactor,
+          gameTime,
+          gameId,
+          atHome,
+          opponentTeam: opponentTeam?.name || '',
+        };
+      }
+    };
+
+    processBatters(awayRoster, homePitcher, awayTeam, homeTeam, false);
+    processBatters(homeRoster, awayPitcher, homeTeam, awayTeam, true);
+  }));
+
+  const playerIds = Object.keys(playerMap);
+  if (!playerIds.length) return [];
+
+  // Fetch season stats in batches of 50
+  const BATCH = 50;
+  const statsPromises = [];
+  for (let i = 0; i < playerIds.length; i += BATCH) {
+    const batch = playerIds.slice(i, i + BATCH);
+    statsPromises.push(
+      apiFetch(`/people?personIds=${batch.join(',')}&hydrate=stats(group=hitting,type=season,season=${new Date().getFullYear()})`)
+        .catch(() => ({ people: [] }))
+    );
+  }
+
+  const statsResults = await Promise.all(statsPromises);
+  const statsByPid = {};
+  for (const res of statsResults) {
+    for (const person of res.people || []) {
+      const hitting = person.stats?.find(s => s.group?.displayName === 'hitting' && s.type?.displayName === 'season');
+      if (hitting?.splits?.length) {
+        statsByPid[person.id] = hitting.splits[0].stat;
+      }
+    }
+  }
+
+  // Fetch pitcher stats
+  const pitcherIds = [...new Set(
+    Object.values(playerMap)
+      .map(p => p.opposingPitcher?.id)
+      .filter(Boolean)
+  )];
+  const pitcherStats = {};
+  if (pitcherIds.length) {
+    const pRes = await apiFetch(`/people?personIds=${pitcherIds.join(',')}&hydrate=stats(group=pitching,type=season,season=${new Date().getFullYear()})`)
+      .catch(() => ({ people: [] }));
+    for (const person of pRes.people || []) {
+      const pitching = person.stats?.find(s => s.group?.displayName === 'pitching' && s.type?.displayName === 'season');
+      if (pitching?.splits?.length) pitcherStats[person.id] = pitching.splits[0].stat;
+    }
+  }
+
+  // ── Score each player ─────────────────────────────────────────────────
+  const picks = [];
+  for (const pid of playerIds) {
+    const meta = playerMap[pid];
+    const s = statsByPid[pid];
+    if (!s) continue;
+
+    const pa = parseInt(s.plateAppearances) || 0;
+    const hr = parseInt(s.homeRuns) || 0;
+    const ab = parseInt(s.atBats) || 0;
+    const hits = parseInt(s.hits) || 0;
+    const slg = parseFloat(s.sluggingPercentage) || 0;
+    const iso = parseFloat(s.isolatedPower) || slg - (parseFloat(s.avg) || 0);
+
+    if (pa < 30) continue; // skip players with too few PAs
+
+    const hrRate = pa > 0 ? hr / pa : 0;
+
+    // Pitcher factor: how many HR/9 does opposing pitcher allow?
+    const oppPid = meta.opposingPitcher?.id;
+    const ps = oppPid ? pitcherStats[oppPid] : null;
+    const pitcherHR9 = ps ? (parseFloat(ps.homeRunsPer9) || 1.0) : 1.0;
+    const leagueAvgHR9 = 1.1;
+    const pitcherFactor = pitcherHR9 / leagueAvgHR9; // >1 = pitcher gives up more HRs
+
+    // Composite score (0–100)
+    const rawScore =
+      (hrRate * 500 * 0.35) +
+      (iso * 100 * 0.25) +
+      (meta.parkFactor * 10 * 0.20) +
+      (pitcherFactor * 10 * 0.20);
+
+    const score = Math.min(Math.round(rawScore), 99);
+
+    const avg = parseFloat(s.avg) || 0;
+    const obp = parseFloat(s.obp) || 0;
+    const ops = parseFloat(s.ops) || 0;
+
+    picks.push({
+      ...meta,
+      stats: { pa, hr, ab, hits, avg, obp, slg, ops, iso },
+      hrRate,
+      pitcherHR9,
+      pitcherFactor,
+      score,
+      opposingPitcherName: meta.opposingPitcher?.fullName || 'Unknown',
+    });
+  }
+
+  picks.sort((a, b) => b.score - a.score);
+  return picks.slice(0, 60); // top 60
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+let allPicks = [];
+let sortMode = 'score';
+let filterMode = 'all';
+
+function tierClass(score) {
+  if (score >= 70) return 'tier-1';
+  if (score >= 55) return 'tier-2';
+  return '';
+}
+
+function badgeClass(score) {
+  if (score >= 70) return 'hot';
+  if (score >= 55) return 'warm';
+  return 'cool';
+}
+
+function getFactors(pick) {
+  const tags = [];
+  if (pick.parkFactor >= 1.10) tags.push({ text: `Park +${((pick.parkFactor - 1) * 100).toFixed(0)}%`, type: 'pos' });
+  else if (pick.parkFactor <= 0.92) tags.push({ text: `Park ${((pick.parkFactor - 1) * 100).toFixed(0)}%`, type: 'neg' });
+  else tags.push({ text: `Park Neutral`, type: 'neu' });
+
+  if (pick.pitcherFactor >= 1.15) tags.push({ text: 'HR-prone P', type: 'pos' });
+  else if (pick.pitcherFactor <= 0.85) tags.push({ text: 'Stingy P', type: 'neg' });
+
+  if (pick.stats.iso >= 0.220) tags.push({ text: 'Elite ISO', type: 'pos' });
+  else if (pick.stats.iso >= 0.170) tags.push({ text: 'Strong ISO', type: 'pos' });
+
+  if (pick.stats.hr >= 20) tags.push({ text: `${pick.stats.hr} HR`, type: 'pos' });
+  else if (pick.stats.hr >= 10) tags.push({ text: `${pick.stats.hr} HR`, type: 'neu' });
+
+  if (pick.atHome) tags.push({ text: 'Home', type: 'neu' });
+
+  return tags;
+}
+
+function initials(name) {
+  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function renderPicks(picks) {
+  const grid = document.getElementById('picks-grid');
+  grid.innerHTML = '';
+
+  if (!picks.length) {
+    grid.innerHTML = `<p style="color:var(--muted); grid-column:1/-1">No picks match current filter.</p>`;
+    return;
+  }
+
+  picks.forEach((pick, i) => {
+    const card = document.createElement('div');
+    card.className = `pick-card ${tierClass(pick.score)}`;
+    card.style.animationDelay = `${i * 0.04}s`;
+
+    const factors = getFactors(pick);
+    const factorHTML = factors.map(f =>
+      `<span class="factor-tag ${f.type}"><span class="dot"></span>${f.text}</span>`
+    ).join('');
+
+    const isoFmt = pick.stats.iso.toFixed(3);
+    const avgFmt = pick.stats.avg.toFixed(3);
+    const slgFmt = pick.stats.slg.toFixed(3);
+    const opsFmt = pick.stats.ops.toFixed(3);
+
+    const pitcherLine = pick.opposingPitcher
+      ? `vs <strong>${pick.opposingPitcherName}</strong>`
+      : 'Pitcher TBD';
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="player-avatar">${initials(pick.name)}</div>
+        <div class="player-info">
+          <div class="player-name">${pick.name}</div>
+          <div class="player-sub">${pick.teamAbbr} · ${pick.position} · ${pick.venue}</div>
+        </div>
+        <div class="score-badge ${badgeClass(pick.score)}" data-tip="Composite HR Score">
+          <div class="score-num">${pick.score}</div>
+          <div class="score-lbl">Score</div>
+        </div>
+      </div>
+      <div class="card-stats">
+        <div class="stat-cell">
+          <div class="s-val ${pick.stats.hr >= 15 ? 'highlight' : ''}">${pick.stats.hr}</div>
+          <div class="s-lbl">HR</div>
+        </div>
+        <div class="stat-cell">
+          <div class="s-val">${avgFmt}</div>
+          <div class="s-lbl">AVG</div>
+        </div>
+        <div class="stat-cell">
+          <div class="s-val ${pick.stats.iso >= 0.18 ? 'highlight' : ''}">${isoFmt}</div>
+          <div class="s-lbl">ISO</div>
+        </div>
+        <div class="stat-cell">
+          <div class="s-val">${opsFmt}</div>
+          <div class="s-lbl">OPS</div>
+        </div>
+      </div>
+      <div class="card-factors">${factorHTML}</div>
+      <div class="card-footer">
+        <div class="matchup-text">${pitcherLine}</div>
+        <div class="game-time">${pick.gameTime}</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('picks-count').textContent = `${picks.length} players`;
+}
+
+function applyDisplayState() {
+  let picks = [...allPicks];
+
+  if (filterMode === 'hot') picks = picks.filter(p => p.score >= 65);
+
+  if (sortMode === 'score') picks.sort((a, b) => b.score - a.score);
+  else if (sortMode === 'hr') picks.sort((a, b) => b.stats.hr - a.stats.hr);
+  else if (sortMode === 'avg') picks.sort((a, b) => b.hrRate - a.hrRate);
+
+  renderPicks(picks);
+}
+
+function updateSummary(picks) {
+  const gameIds = new Set(picks.map(p => p.gameId));
+  document.getElementById('sum-games').textContent = gameIds.size;
+  document.getElementById('sum-players').textContent = picks.length;
+  document.getElementById('sum-top').textContent = picks[0]?.score ?? '—';
+  const avg = picks.length ? Math.round(picks.reduce((s, p) => s + p.score, 0) / picks.length) : 0;
+  document.getElementById('sum-avg').textContent = avg;
+}
+
+function setMsg(html) {
+  const el = document.getElementById('state-msg');
+  el.style.display = html ? 'block' : 'none';
+  el.innerHTML = html;
+}
+
+async function refresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  document.getElementById('picks-container').style.display = 'none';
+  document.getElementById('summary-bar').style.display = 'none';
+  setMsg('<div class="spinner"></div><div>Loading today\'s games & player stats...</div>');
+
+  try {
+    allPicks = await loadPicks();
+
+    setMsg('');
+    if (allPicks.length) {
+      document.getElementById('summary-bar').style.display = 'flex';
+      document.getElementById('picks-container').style.display = 'block';
+      updateSummary(allPicks);
+      applyDisplayState();
+    }
+  } catch (e) {
+    console.error(e);
+    setMsg(`<div class="error-box">
+      <strong>Failed to load data</strong><br>
+      <span style="font-size:13px">${e.message}</span><br>
+      <span style="font-size:12px; opacity:0.7">CORS restrictions may apply in some environments. Try opening as a local file or hosted page.</span>
+    </div>`);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────
+document.getElementById('sort-group').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('#sort-group .pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  sortMode = btn.dataset.sort;
+  applyDisplayState();
+});
+
+document.getElementById('filter-group').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('#filter-group .pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterMode = btn.dataset.filter;
+  applyDisplayState();
+});
+
+document.getElementById('refresh-btn').addEventListener('click', refresh);
+
+// Init
+refresh();
+</script>
+</body>
+</html>
