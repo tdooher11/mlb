@@ -762,8 +762,10 @@ async function loadPicks() {
     const ab = parseInt(s.atBats) || 0;
     const hits = parseInt(s.hits) || 0;
     const avg = parseFloat(s.avg) || 0;
-    const slg = parseFloat(s.sluggingPercentage) || 0;
-    const iso = Math.max(0, slg - avg); // compute directly; API isolatedPower field is unreliable
+    const obp = parseFloat(s.obp) || 0;
+    const ops = parseFloat(s.ops) || 0;
+    const slg = parseFloat(s.slg) || Math.max(0, ops - obp);
+    const iso = Math.max(0, slg - avg);
 
     if (pa < 80) continue; // skip players with too few PAs
 
@@ -784,9 +786,6 @@ async function loadPicks() {
       (pitcherFactor * 10 * 0.20);
 
     const score = Math.min(Math.round(rawScore), 99);
-
-    const obp = parseFloat(s.obp) || 0;
-    const ops = parseFloat(s.ops) || 0;
 
     picks.push({
       ...meta,
