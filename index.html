@@ -450,6 +450,19 @@
     .summary-stat { min-width: 50%; }
   }
 
+  /* Result banner (backtest) */
+  .result-banner {
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+  }
+  .result-banner.hit { background: rgba(62,207,142,0.12); color: var(--green); }
+  .result-banner.miss { background: rgba(255,255,255,0.03); color: var(--muted); }
+
   /* Tooltip */
   [data-tip] { position: relative; cursor: help; }
   [data-tip]:hover::after {
@@ -470,8 +483,7 @@
     pointer-events: none;
   }
 
-  .disclaimer {
-    padding: 1.25rem 2rem;
+  .disclaimer {    padding: 1.25rem 2rem;
     font-size: 11px;
     color: var(--muted);
     border-top: 1px solid var(--border);
@@ -718,6 +730,25 @@ function updateDateNav() {
   }
 }
 
+// ── Backtest: fetch actual HR results from box scores ─────────────────────
+async function fetchActualHRs(gameIds) {
+  const hrMap = {};
+  await Promise.all([...gameIds].map(async (gameId) => {
+    try {
+      const data = await apiFetch(`/game/${gameId}/boxscore`);
+      for (const side of ['home', 'away']) {
+        const players = data.teams?.[side]?.players || {};
+        for (const player of Object.values(players)) {
+          const pid = player.person?.id;
+          const hrs = parseInt(player.stats?.batting?.homeRuns) || 0;
+          if (pid != null) hrMap[pid] = (hrMap[pid] || 0) + hrs;
+        }
+      }
+    } catch(e) {}
+  }));
+  return hrMap;
+}
+
 // ── Main data pipeline ────────────────────────────────────────────────────
 async function loadPicks() {
   const date = selectedDate;
@@ -899,7 +930,18 @@ async function loadPicks() {
   }
 
   picks.sort((a, b) => b.score - a.score);
-  return picks.slice(0, 60); // top 60
+  const top60 = picks.slice(0, 60);
+
+  // Attach actual HR results for past dates
+  if (date < todayStr()) {
+    const gameIds = new Set(top60.map(p => p.gameId));
+    const hrMap = await fetchActualHRs(gameIds);
+    for (const pick of top60) {
+      pick.actualHR = hrMap[pick.id] ?? 0;
+    }
+  }
+
+  return top60;
 }
 
 // ── Render ────────────────────────────────────────────────────────────────
@@ -995,7 +1037,11 @@ function renderPicks(picks) {
       ? `vs <strong>${pick.opposingPitcherName}</strong>`
       : 'Pitcher TBD';
 
-    card.innerHTML = `
+    const resultHTML = pick.actualHR != null
+      ? `<div class="result-banner ${pick.actualHR > 0 ? 'hit' : 'miss'}">${pick.actualHR > 0 ? `⚾ HIT HR${pick.actualHR > 1 ? ` ×${pick.actualHR}` : ''}` : '✗ No HR'}</div>`
+      : '';
+
+    card.innerHTML = `${resultHTML}
       <div class="card-header">
         <div class="player-avatar">${initials(pick.name)}</div>
         <div class="player-info">
