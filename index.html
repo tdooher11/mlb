@@ -136,6 +136,43 @@
     transition: all 0.15s;
   }
   .refresh-btn:hover { background: var(--surface2); }
+  .date-nav {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .date-arrow {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .date-arrow:hover { background: var(--surface2); }
+  .date-label {
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-body);
+    font-weight: 500;
+    padding: 5px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 90px;
+    text-align: center;
+    transition: background 0.15s;
+  }
+  .date-label:hover { background: var(--surface2); }
+  .date-label.is-today { color: var(--accent); }
   .refresh-icon { font-size: 14px; display: inline-block; transition: transform 0.5s; }
   .refresh-btn.spinning .refresh-icon { animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -469,6 +506,11 @@
     <button class="pill" data-filter="hot">🔥 Top Picks</button>
   </div>
   <div class="controls-right">
+    <div class="date-nav">
+      <button class="date-arrow" id="date-prev">&#8249;</button>
+      <button class="date-label" id="date-today-btn">Today</button>
+      <button class="date-arrow" id="date-next">&#8250;</button>
+    </div>
     <button class="refresh-btn" id="refresh-btn">
       <span class="refresh-icon">↻</span> Refresh
     </button>
@@ -572,9 +614,37 @@ async function apiFetch(path) {
   return res.json();
 }
 
+// ── Date picker state ─────────────────────────────────────────────────────
+let selectedDate = todayStr();
+
+function offsetDate(str, days) {
+  const [y, m, d] = str.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function updateDateNav() {
+  const today = todayStr();
+  const btn = document.getElementById('date-today-btn');
+  if (selectedDate === today) {
+    btn.textContent = 'Today';
+    btn.classList.add('is-today');
+  } else if (selectedDate === offsetDate(today, 1)) {
+    btn.textContent = 'Tomorrow';
+    btn.classList.remove('is-today');
+  } else if (selectedDate === offsetDate(today, -1)) {
+    btn.textContent = 'Yesterday';
+    btn.classList.remove('is-today');
+  } else {
+    const [y, mo, d] = selectedDate.split('-').map(Number);
+    btn.textContent = new Date(y, mo-1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    btn.classList.remove('is-today');
+  }
+}
+
 // ── Main data pipeline ────────────────────────────────────────────────────
 async function loadPicks() {
-  const date = todayStr();
+  const date = selectedDate;
   document.getElementById('date-display').textContent = fmtDisplayDate(date);
 
   const schedData = await apiFetch(`/schedule?sportId=1&date=${date}&hydrate=probablePitcher,venue,lineups`);
@@ -933,7 +1003,26 @@ document.getElementById('filter-group').addEventListener('click', e => {
 
 document.getElementById('refresh-btn').addEventListener('click', refresh);
 
+document.getElementById('date-prev').addEventListener('click', () => {
+  selectedDate = offsetDate(selectedDate, -1);
+  updateDateNav();
+  refresh();
+});
+
+document.getElementById('date-next').addEventListener('click', () => {
+  selectedDate = offsetDate(selectedDate, 1);
+  updateDateNav();
+  refresh();
+});
+
+document.getElementById('date-today-btn').addEventListener('click', () => {
+  selectedDate = todayStr();
+  updateDateNav();
+  refresh();
+});
+
 // Init
+updateDateNav();
 refresh();
 </script>
 </body>
