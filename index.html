@@ -326,12 +326,9 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
-  .stat-cell .s-val.highlight { color: var(--green); }
-  .stat-cell .s-val.hr-green { color: var(--green); }
-  .stat-cell .s-val.hr-yellow { color: #f5d63a; }
-  .stat-cell .s-val.hr-red { color: var(--red); }
+  .stat-cell .s-val.stat-good { color: var(--green); }
+  .stat-cell .s-val.stat-bad { color: var(--red); }
   .score-num.score-green { color: var(--green) !important; }
-  .score-num.score-yellow { color: #f5d63a !important; }
   .score-num.score-red { color: var(--red) !important; }
 
   /* Factors */
@@ -742,15 +739,27 @@ let sortMode = 'score';
 let filterMode = 'all';
 
 function tierClass(score) {
-  if (score >= 70) return 'tier-1';
-  if (score >= 55) return 'tier-2';
+  if (score >= 20) return 'tier-1';
+  if (score >= 13) return 'tier-2';
   return '';
 }
 
 function badgeClass(score) {
-  if (score >= 70) return 'hot';
-  if (score >= 55) return 'warm';
+  if (score >= 20) return 'hot';
+  if (score >= 13) return 'warm';
   return 'cool';
+}
+
+function sc(val, good, bad) {
+  if (val >= good) return 'stat-good';
+  if (val <= bad) return 'stat-bad';
+  return '';
+}
+
+function scoreClass(score) {
+  if (score >= 13) return 'score-green';
+  if (score <= 6) return 'score-red';
+  return '';
 }
 
 function getFactors(pick) {
@@ -812,27 +821,27 @@ function renderPicks(picks) {
           <div class="player-name">${pick.name}</div>
           <div class="player-sub">${pick.teamAbbr} · ${pick.position} · ${pick.venue}</div>
         </div>
-        <div class="score-badge ${badgeClass(pick.score)}" data-tip="Power Index">
-          <div class="score-num ${pick.score >= 70 ? 'score-green' : pick.score >= 55 ? 'score-yellow' : 'score-red'}">${pick.score}</div>
+        <div class="score-badge ${badgeClass(pick.score)}" data-tip="Power Index: composite of HR rate, ISO, park factor &amp; pitcher matchup">
+          <div class="score-num ${scoreClass(pick.score)}">${pick.score}</div>
           <div class="score-lbl">PWR IDX</div>
         </div>
       </div>
       <div class="card-stats">
         <div class="stat-cell">
-          <div class="s-val ${pick.stats.hr >= 15 ? 'hr-green' : pick.stats.hr >= 8 ? 'hr-yellow' : 'hr-red'}">${pick.stats.hr}</div>
+          <div class="s-val ${sc(pick.stats.hr, 15, 7)}">${pick.stats.hr}</div>
           <div class="s-lbl">HR</div>
         </div>
         <div class="stat-cell">
-          <div class="s-val">${avgFmt}</div>
-          <div class="s-lbl">AVG</div>
+          <div class="s-val ${sc(pick.stats.avg, 0.285, 0.220)}">${avgFmt}</div>
+          <div class="s-lbl" data-tip="Batting Average: hits per at-bat">AVG</div>
         </div>
         <div class="stat-cell">
-          <div class="s-val ${pick.stats.iso >= 0.18 ? 'highlight' : ''}">${isoFmt}</div>
-          <div class="s-lbl">ISO</div>
+          <div class="s-val ${sc(pick.stats.iso, 0.180, 0.100)}">${isoFmt}</div>
+          <div class="s-lbl" data-tip="Isolated Power: extra-base hit ability (SLG minus AVG)">ISO</div>
         </div>
         <div class="stat-cell">
-          <div class="s-val">${opsFmt}</div>
-          <div class="s-lbl">OPS</div>
+          <div class="s-val ${sc(pick.stats.ops, 0.800, 0.680)}">${opsFmt}</div>
+          <div class="s-lbl" data-tip="On-base Plus Slugging: overall offensive production">OPS</div>
         </div>
       </div>
       <div class="card-factors">${factorHTML}</div>
@@ -850,7 +859,7 @@ function renderPicks(picks) {
 function applyDisplayState() {
   let picks = [...allPicks];
 
-  if (filterMode === 'hot') picks = picks.filter(p => p.score >= 65);
+  if (filterMode === 'hot') picks = picks.filter(p => p.score >= 18);
 
   if (sortMode === 'score') picks.sort((a, b) => b.score - a.score);
   else if (sortMode === 'hr') picks.sort((a, b) => b.stats.hr - a.stats.hr);
