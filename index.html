@@ -205,12 +205,12 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    overflow: hidden;
     transition: border-color 0.15s, transform 0.15s;
     animation: fadeUp 0.3s ease both;
     position: relative;
+    z-index: 1;
   }
-  .pick-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .pick-card:hover { border-color: var(--border2); transform: translateY(-1px); z-index: 10; }
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -330,6 +330,9 @@
   .stat-cell .s-val.hr-green { color: var(--green); }
   .stat-cell .s-val.hr-yellow { color: #f5d63a; }
   .stat-cell .s-val.hr-red { color: var(--red); }
+  .score-num.score-green { color: var(--green) !important; }
+  .score-num.score-yellow { color: #f5d63a !important; }
+  .score-num.score-red { color: var(--red) !important; }
 
   /* Factors */
   .card-factors {
@@ -425,6 +428,7 @@
     border: 1px solid var(--border2);
     color: var(--text);
     font-size: 11px;
+    z-index: 100;
     padding: 4px 8px;
     border-radius: 5px;
     white-space: nowrap;
@@ -808,9 +812,9 @@ function renderPicks(picks) {
           <div class="player-name">${pick.name}</div>
           <div class="player-sub">${pick.teamAbbr} · ${pick.position} · ${pick.venue}</div>
         </div>
-        <div class="score-badge ${badgeClass(pick.score)}" data-tip="Composite HR Score">
-          <div class="score-num">${pick.score}</div>
-          <div class="score-lbl">Score</div>
+        <div class="score-badge ${badgeClass(pick.score)}" data-tip="Power Index">
+          <div class="score-num ${pick.score >= 70 ? 'score-green' : pick.score >= 55 ? 'score-yellow' : 'score-red'}">${pick.score}</div>
+          <div class="score-lbl">PWR IDX</div>
         </div>
       </div>
       <div class="card-stats">
