@@ -851,6 +851,7 @@ async function loadPicks() {
           parkFactor,
           gameTime,
           gameDateISO: game.gameDate || '',
+          gameStatus: game.status?.abstractGameState || 'Preview',
           gameId,
           atHome,
           opponentTeam: opponentTeam?.name || '',
@@ -977,12 +978,14 @@ async function loadPicks() {
   picks.sort((a, b) => b.score - a.score);
   const top60 = picks.slice(0, 60);
 
-  // Attach actual HR results for past dates
-  if (date < todayStr()) {
-    const gameIds = new Set(top60.map(p => p.gameId));
-    const hrMap = await fetchActualHRs(gameIds);
-    for (const pick of top60) {
-      pick.actualHR = hrMap[pick.id] ?? 0;
+  // Attach actual HR results for past dates and started/live games today
+  if (date <= todayStr()) {
+    const startedGameIds = new Set(top60.filter(p => p.gameStatus !== 'Preview').map(p => p.gameId));
+    if (startedGameIds.size) {
+      const hrMap = await fetchActualHRs(startedGameIds);
+      for (const pick of top60) {
+        if (pick.gameStatus !== 'Preview') pick.actualHR = hrMap[pick.id] ?? 0;
+      }
     }
   }
 
