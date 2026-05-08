@@ -427,7 +427,10 @@ async function runBacktest() {
       const pct = (hits / topN * 100).toFixed(0);
       const hitters = withResults
         .filter(p => p.actualHR > 0)
-        .map((p, _, arr) => `${p.name}${p.actualHR > 1 ? ` ×${p.actualHR}` : ''} (#${top.indexOf(p)+1})`);
+        .map(p => {
+          const rank = top.findIndex(t => t.id === p.id) + 1;
+          return `${p.name}${p.actualHR > 1 ? ` ×${p.actualHR}` : ''} (#${rank})`;
+        });
 
       const pctNum = hits / topN;
       const pctCls = pctNum >= 0.20 ? 'good' : pctNum >= 0.10 ? 'avg' : 'bad';
