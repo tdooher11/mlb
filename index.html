@@ -953,10 +953,12 @@ async function loadPicks() {
       : null;
     const weatherBonus = calcWeatherBonus(weather);
 
+    const isoForScore = Math.min(iso, 0.280); // cap to prevent small-sample inflation
+
     // Composite score (0–100)
     const rawScore =
       (hrRate * 500 * 0.35) +
-      (iso * 100 * 0.25) +
+      (isoForScore * 100 * 0.25) +
       (meta.parkFactor * 10 * 0.20) +
       (pitcherFactor * 10 * 0.20) +
       weatherBonus;
