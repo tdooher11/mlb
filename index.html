@@ -526,6 +526,43 @@
     pointer-events: none;
   }
 
+  /* Odds row */
+  .card-odds {
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.12);
+    flex-wrap: wrap;
+  }
+  .odds-price {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .odds-implied {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .value-badge {
+    background: rgba(62,207,142,0.15);
+    color: var(--green);
+    border: 1px solid rgba(62,207,142,0.3);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .odds-book {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
   .disclaimer {    padding: 1.25rem 2rem;
     font-size: 11px;
     color: var(--muted);
@@ -794,6 +831,72 @@ async function fetchActualHRs(gameIds) {
   return hrMap;
 }
 
+// ── Odds API ──────────────────────────────────────────────────────────────
+const ODDS_API_KEY = '5d833439ecd909ac05f89999163b9789';
+
+function normName(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+async function fetchOddsForPicks(topPicks, date) {
+  try {
+    const evRes = await fetch(
+      `https://api.the-odds-api.com/v4/sports/baseball_mlb/events?apiKey=${ODDS_API_KEY}&dateFormat=iso`
+    );
+    if (!evRes.ok) return {};
+    const allEvents = await evRes.json();
+
+    // Filter to the requested date (UTC)
+    const dayEvents = allEvents.filter(e => e.commence_time.startsWith(date));
+    if (!dayEvents.length) return {};
+
+    // Only fetch props for games where our top picks play
+    const pickTeams = new Set(topPicks.map(p => p.team));
+    const relevant = dayEvents.filter(e =>
+      pickTeams.has(e.home_team) || pickTeams.has(e.away_team)
+    );
+
+    // Build name→best-odds map (keep highest price across books)
+    const oddsMap = {};
+    await Promise.all(relevant.map(async ev => {
+      try {
+        const r = await fetch(
+          `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${ev.id}/odds` +
+          `?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_home_runs&oddsFormat=american`
+        );
+        if (!r.ok) return;
+        const data = await r.json();
+        for (const book of data.bookmakers || []) {
+          const mkt = book.markets?.find(m => m.key === 'batter_home_runs');
+          if (!mkt) continue;
+          for (const outcome of mkt.outcomes || []) {
+            const key = normName(outcome.description || outcome.name || '');
+            if (!key) continue;
+            if (!oddsMap[key] || outcome.price > oddsMap[key].price) {
+              oddsMap[key] = { price: outcome.price, book: book.title };
+            }
+          }
+        }
+      } catch(e) {}
+    }));
+
+    return oddsMap;
+  } catch(e) {
+    return {};
+  }
+}
+
+function oddsImplied(price) {
+  return price > 0 ? 100 / (price + 100) : Math.abs(price) / (Math.abs(price) + 100);
+}
+
+function modelProb(score) {
+  if (score >= 20) return 0.33;
+  if (score >= 15) return 0.27;
+  if (score >= 12) return 0.22;
+  return 0.15;
+}
+
 // ── Main data pipeline ────────────────────────────────────────────────────
 async function loadPicks() {
   const date = selectedDate;
@@ -980,6 +1083,19 @@ async function loadPicks() {
   picks.sort((a, b) => b.score - a.score);
   const top60 = picks.slice(0, 60);
 
+  // Fetch HR odds for today and tomorrow
+  if (date >= todayStr()) {
+    const oddsMap = await fetchOddsForPicks(top60.slice(0, 12), date);
+    for (const pick of top60) {
+      const o = oddsMap[normName(pick.name)];
+      if (!o) continue;
+      pick.odds = o.price;
+      pick.oddsBook = o.book;
+      pick.oddsImplied = oddsImplied(o.price);
+      pick.isValue = pick.oddsImplied < modelProb(pick.score) - 0.03;
+    }
+  }
+
   // Attach actual HR results for past dates and started/live games today
   if (date <= todayStr()) {
     const startedGameIds = new Set(top60.filter(p => p.gameStatus !== 'Preview').map(p => p.gameId));
@@ -1091,6 +1207,14 @@ function renderPicks(picks) {
       ? `<div class="result-banner ${pick.actualHR > 0 ? 'hit' : 'miss'}">${pick.actualHR > 0 ? `⚾ HIT HR${pick.actualHR > 1 ? ` ×${pick.actualHR}` : ''}` : '✗ No HR'}</div>`
       : '';
 
+    const oddsHTML = pick.odds != null ? `
+      <div class="card-odds">
+        <span class="odds-price">${pick.odds > 0 ? '+' : ''}${pick.odds}</span>
+        <span class="odds-implied">${Math.round(pick.oddsImplied * 100)}% implied</span>
+        ${pick.isValue ? '<span class="value-badge">⚡ VALUE</span>' : ''}
+        <span class="odds-book">${pick.oddsBook}</span>
+      </div>` : '';
+
     card.innerHTML = `${resultHTML}
       <div class="card-header">
         <div class="player-avatar">${initials(pick.name)}</div>
@@ -1122,6 +1246,7 @@ function renderPicks(picks) {
         </div>
       </div>
       <div class="card-factors">${factorHTML}</div>
+      ${oddsHTML}
       <div class="card-footer">
         <div class="matchup-text">${pitcherLine}</div>
         <div class="game-time">${pick.gameTime}</div>
