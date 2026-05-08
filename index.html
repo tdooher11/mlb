@@ -1151,12 +1151,6 @@ function getFactors(pick) {
   if (pick.pitcherFactor >= 1.15) tags.push({ text: 'HR-prone P', type: 'pos' });
   else if (pick.pitcherFactor <= 0.85) tags.push({ text: 'Stingy P', type: 'neg' });
 
-  if (pick.stats.iso >= 0.220) tags.push({ text: 'Elite ISO', type: 'pos' });
-  else if (pick.stats.iso >= 0.170) tags.push({ text: 'Strong ISO', type: 'pos' });
-
-  if (pick.stats.hr >= 20) tags.push({ text: `${pick.stats.hr} HR`, type: 'pos' });
-  else if (pick.stats.hr >= 10) tags.push({ text: `${pick.stats.hr} HR`, type: 'neu' });
-
   if (pick.atHome) tags.push({ text: 'Home', type: 'neu' });
 
   const w = pick.weather;
