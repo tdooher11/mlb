@@ -874,7 +874,7 @@ async function fetchOddsForPicks(topPicks, date) {
             if (!key) continue;
             const price = outcome.price;
             // Only accept plausible "any HR" odds — multi-HR props run +2000+
-            if (price < 100 || price > 1500) continue;
+            if (price < 100 || price > 800) continue;
             if (!oddsMap[key] || price > oddsMap[key].price) {
               oddsMap[key] = { price, book: book.title };
             }
