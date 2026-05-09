@@ -402,6 +402,16 @@
   .matchup-text { font-size: 12px; color: var(--muted); }
   .matchup-text strong { color: var(--text); font-weight: 500; }
   .game-time { font-size: 12px; color: var(--muted); }
+  .ou-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
 
   /* No games */
   .no-games {
@@ -966,6 +976,30 @@ function normName(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
+async function fetchGameTotals(date) {
+  try {
+    const res = await fetch(
+      `https://api.the-odds-api.com/v4/sports/baseball_mlb/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=totals&oddsFormat=american&dateFormat=iso`
+    );
+    if (!res.ok) return {};
+    const games = await res.json();
+    const totalsMap = {};
+    for (const game of games) {
+      if (!game.commence_time.startsWith(date)) continue;
+      // Use first bookmaker that has a totals market
+      for (const book of game.bookmakers || []) {
+        const mkt = book.markets?.find(m => m.key === 'totals');
+        const over = mkt?.outcomes?.find(o => o.name === 'Over');
+        if (over?.point != null) {
+          totalsMap[`${game.home_team}|${game.away_team}`] = over.point;
+          break;
+        }
+      }
+    }
+    return totalsMap;
+  } catch(e) { return {}; }
+}
+
 async function fetchOddsForPicks(topPicks, date) {
   try {
     const evRes = await fetch(
@@ -1215,9 +1249,18 @@ async function loadPicks() {
   picks.sort((a, b) => b.score - a.score);
   const top60 = picks.slice(0, 60);
 
-  // Fetch HR odds for today and tomorrow
+  // Fetch HR odds + game totals for today and tomorrow
   if (date >= todayStr()) {
-    const oddsMap = await fetchOddsForPicks(top60.slice(0, 12), date);
+    const [oddsMap, totalsMap] = await Promise.all([
+      fetchOddsForPicks(top60.slice(0, 12), date),
+      fetchGameTotals(date),
+    ]);
+    for (const pick of top60) {
+      const homeTeam = pick.atHome ? pick.team : pick.opponentTeam;
+      const awayTeam = pick.atHome ? pick.opponentTeam : pick.team;
+      const total = totalsMap[`${homeTeam}|${awayTeam}`];
+      if (total != null) pick.gameTotal = total;
+    }
     for (const pick of top60) {
       const o = oddsMap[normName(pick.name)];
       if (!o) continue;
@@ -1404,6 +1447,7 @@ function renderPicks(picks) {
       ${oddsHTML}
       <div class="card-footer">
         <div class="matchup-text">${pitcherLine}</div>
+        ${pick.gameTotal != null ? `<span class="ou-badge">O/U ${pick.gameTotal}</span>` : ''}
         ${gameTimeHTML}
       </div>
     `;
