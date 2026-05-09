@@ -563,6 +563,112 @@
     margin-left: auto;
   }
 
+  /* Results view */
+  .results-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex-wrap: wrap;
+  }
+  .rs-rate {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+  .rs-rate.good { color: var(--green); }
+  .rs-rate.bad  { color: var(--red); }
+  .rs-label { font-size: 13px; color: var(--muted); }
+  .rs-mult  { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--accent); }
+
+  .results-section { margin-bottom: 1.25rem; }
+  .results-heading {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .results-heading.hit-head { color: var(--green); }
+
+  .result-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin-bottom: 3px;
+    transition: background 0.12s;
+  }
+  .result-row:hover { background: var(--surface); }
+  .result-row.hit  { background: rgba(62,207,142,0.06); }
+  .result-row.miss { background: rgba(255,255,255,0.02); }
+
+  .rr-rank {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    width: 28px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .rr-name {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .result-row.hit  .rr-name { color: #fff; }
+  .result-row.miss .rr-name { color: var(--muted); }
+  .rr-team {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .rr-hr {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+    width: 36px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .rr-score {
+    font-size: 12px;
+    color: var(--muted);
+    width: 52px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .rr-odds {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    width: 54px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
   /* Live score */
   .live-indicator {
     display: inline-flex;
@@ -607,6 +713,10 @@
 
 <div class="controls">
   <div class="pill-row">
+    <div class="pill-group" id="view-group">
+      <button class="pill active" data-view="cards">Cards</button>
+      <button class="pill" data-view="results">Results</button>
+    </div>
     <div class="pill-group" id="sort-group">
       <button class="pill active" data-sort="score">Score</button>
       <button class="pill" data-sort="hr">HR/Season</button>
@@ -1148,6 +1258,7 @@ async function loadPicks() {
 let allPicks = [];
 let sortMode = 'score';
 let filterMode = 'all';
+let viewMode = 'cards';
 
 function tierClass(score) {
   if (score >= 20) return 'tier-1';
@@ -1302,6 +1413,66 @@ function renderPicks(picks) {
   document.getElementById('picks-count').textContent = `${picks.length} players`;
 }
 
+function renderResults(picks) {
+  const grid = document.getElementById('picks-grid');
+  const withResults = picks.filter(p => p.actualHR != null);
+  if (!withResults.length) {
+    grid.innerHTML = `<p style="color:var(--muted); padding:2rem 0">No completed games yet — check back later.</p>`;
+    return;
+  }
+
+  const hits   = withResults.filter(p => p.actualHR > 0);
+  const misses = withResults.filter(p => p.actualHR === 0);
+  const hitRate = withResults.length ? hits.length / withResults.length : 0;
+  const mult = (hitRate / 0.12).toFixed(2);
+  const rateCls = hitRate >= 0.25 ? 'good' : hitRate >= 0.12 ? '' : 'bad';
+
+  const row = (pick, rank) => {
+    const isHit = pick.actualHR > 0;
+    const hrLabel = pick.actualHR > 1 ? `⚾ ×${pick.actualHR}` : isHit ? '⚾' : '';
+    const oddsStr = pick.odds != null ? `${pick.odds > 0 ? '+' : ''}${pick.odds}` : '';
+    return `<div class="result-row ${isHit ? 'hit' : 'miss'}">
+      <span class="rr-rank">#${rank}</span>
+      <span class="rr-name">${pick.name}</span>
+      <span class="rr-team">${pick.teamAbbr}</span>
+      <span class="rr-hr">${hrLabel}</span>
+      <span class="rr-score">${pick.score} PWR</span>
+      <span class="rr-odds">${oddsStr}</span>
+    </div>`;
+  };
+
+  // Assign ranks from original score-sorted order
+  const ranked = [...picks].sort((a, b) => b.score - a.score);
+  const rankOf = p => ranked.findIndex(r => r.id === p.id) + 1;
+
+  grid.innerHTML = `
+    <div class="results-summary" style="grid-column:1/-1">
+      <div>
+        <div class="rs-rate ${rateCls}">${hits.length}/${withResults.length}</div>
+        <div class="rs-label">hit a home run</div>
+      </div>
+      <div>
+        <div class="rs-mult">${(hitRate * 100).toFixed(0)}%</div>
+        <div class="rs-label">hit rate</div>
+      </div>
+      <div>
+        <div class="rs-mult">${mult}×</div>
+        <div class="rs-label">vs ~12% league avg</div>
+      </div>
+    </div>
+    ${hits.length ? `
+    <div class="results-section" style="grid-column:1/-1">
+      <div class="results-heading hit-head">⚾ Hit HR (${hits.length})</div>
+      ${hits.sort((a,b) => rankOf(a)-rankOf(b)).map(p => row(p, rankOf(p))).join('')}
+    </div>` : ''}
+    <div class="results-section" style="grid-column:1/-1">
+      <div class="results-heading">✗ No HR (${misses.length})</div>
+      ${misses.sort((a,b) => rankOf(a)-rankOf(b)).map(p => row(p, rankOf(p))).join('')}
+    </div>`;
+
+  document.getElementById('picks-count').textContent = `${withResults.length} with results`;
+}
+
 function applyDisplayState() {
   let picks = [...allPicks];
 
@@ -1311,7 +1482,8 @@ function applyDisplayState() {
   else if (sortMode === 'hr') picks.sort((a, b) => b.stats.hr - a.stats.hr);
   else if (sortMode === 'avg') picks.sort((a, b) => b.hrRate - a.hrRate);
 
-  renderPicks(picks);
+  if (viewMode === 'results') renderResults(picks);
+  else renderPicks(picks);
 }
 
 function updateSummary(picks) {
@@ -1359,6 +1531,15 @@ async function refresh() {
 }
 
 // ── Event listeners ───────────────────────────────────────────────────────
+document.getElementById('view-group').addEventListener('click', e => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('#view-group .pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  viewMode = btn.dataset.view;
+  applyDisplayState();
+});
+
 document.getElementById('sort-group').addEventListener('click', e => {
   const btn = e.target.closest('.pill');
   if (!btn) return;
@@ -1382,18 +1563,24 @@ document.getElementById('refresh-btn').addEventListener('click', refresh);
 document.getElementById('date-prev').addEventListener('click', () => {
   selectedDate = offsetDate(selectedDate, -1);
   updateDateNav();
+  viewMode = 'cards';
+  document.querySelectorAll('#view-group .pill').forEach((b,i) => b.classList.toggle('active', i===0));
   refresh();
 });
 
 document.getElementById('date-next').addEventListener('click', () => {
   selectedDate = offsetDate(selectedDate, 1);
   updateDateNav();
+  viewMode = 'cards';
+  document.querySelectorAll('#view-group .pill').forEach((b,i) => b.classList.toggle('active', i===0));
   refresh();
 });
 
 document.getElementById('date-today-btn').addEventListener('click', () => {
   selectedDate = todayStr();
   updateDateNav();
+  viewMode = 'cards';
+  document.querySelectorAll('#view-group .pill').forEach((b,i) => b.classList.toggle('active', i===0));
   refresh();
 });
 
