@@ -563,6 +563,24 @@
     margin-left: auto;
   }
 
+  /* Live score */
+  .live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: #f87171;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: livepulse 1.4s ease-in-out infinite;
+  }
+  @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
   .disclaimer {    padding: 1.25rem 2rem;
     font-size: 11px;
     color: var(--muted);
@@ -961,6 +979,7 @@ async function loadPicks() {
           gameId,
           atHome,
           opponentTeam: opponentTeam?.name || '',
+          opponentTeamAbbr: opponentTeam?.abbreviation || '',
         };
       }
     };
@@ -1110,6 +1129,18 @@ async function loadPicks() {
     }
   }
 
+  // Fetch live linescores
+  const liveGameIds = new Set(top60.filter(p => p.gameStatus === 'Live').map(p => p.gameId));
+  if (liveGameIds.size) {
+    const lsMap = {};
+    await Promise.all([...liveGameIds].map(async gid => {
+      try { lsMap[gid] = await apiFetch(`/game/${gid}/linescore`); } catch(e) {}
+    }));
+    for (const pick of top60) {
+      if (lsMap[pick.gameId]) pick.linescore = lsMap[pick.gameId];
+    }
+  }
+
   return top60;
 }
 
@@ -1200,6 +1231,22 @@ function renderPicks(picks) {
       ? `vs <strong>${pick.opposingPitcherName}</strong>`
       : 'Pitcher TBD';
 
+    let gameTimeHTML = `<div class="game-time">${pick.gameTime}</div>`;
+    if (pick.linescore) {
+      const ls = pick.linescore;
+      const half = ls.inningHalf === 'Top' ? '▲' : '▼';
+      const inn = ls.currentInningOrdinal || ls.currentInning || '?';
+      const outs = ls.outs ?? 0;
+      const awayAbbr = pick.atHome ? pick.opponentTeamAbbr : pick.teamAbbr;
+      const homeAbbr = pick.atHome ? pick.teamAbbr : pick.opponentTeamAbbr;
+      const awayR = ls.teams?.away?.runs ?? 0;
+      const homeR = ls.teams?.home?.runs ?? 0;
+      gameTimeHTML = `<div class="live-indicator">
+        <span class="live-dot"></span>
+        ${half}${inn} &middot; ${outs} out &middot; ${awayAbbr} ${awayR}–${homeR} ${homeAbbr}
+      </div>`;
+    }
+
     const resultHTML = pick.actualHR != null
       ? `<div class="result-banner ${pick.actualHR > 0 ? 'hit' : 'miss'}">${pick.actualHR > 0 ? `⚾ HIT HR${pick.actualHR > 1 ? ` ×${pick.actualHR}` : ''}` : '✗ No HR'}</div>`
       : '';
@@ -1246,7 +1293,7 @@ function renderPicks(picks) {
       ${oddsHTML}
       <div class="card-footer">
         <div class="matchup-text">${pitcherLine}</div>
-        <div class="game-time">${pick.gameTime}</div>
+        ${gameTimeHTML}
       </div>
     `;
     grid.appendChild(card);
