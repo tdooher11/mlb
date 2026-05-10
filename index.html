@@ -825,6 +825,15 @@ const PARK_FACTORS = {
 
 const MLB_BASE = 'https://statsapi.mlb.com/api/v1';
 
+const TEAM_ABBR = {
+  108:'LAA', 109:'ARI', 110:'BAL', 111:'BOS', 112:'CHC',
+  113:'CIN', 114:'CLE', 115:'COL', 116:'DET', 117:'HOU',
+  118:'KC',  119:'LAD', 120:'WSH', 121:'NYM', 133:'ATH',
+  134:'PIT', 135:'SD',  136:'SEA', 137:'SF',  138:'STL',
+  139:'TB',  140:'TEX', 141:'TOR', 142:'MIN', 143:'PHI',
+  144:'ATL', 145:'CWS', 146:'MIA', 147:'NYY', 158:'MIL',
+};
+
 // ── Venue name normalization (API names → canonical names in our data) ────
 const VENUE_ALIASES = {
   'Rate Field': 'Guaranteed Rate Field',
@@ -1112,7 +1121,7 @@ async function loadPicks() {
           id: pid,
           name: entry.person?.fullName || 'Unknown',
           team: myTeam?.name || '',
-          teamAbbr: myTeam?.abbreviation || '',
+          teamAbbr: myTeam?.abbreviation || TEAM_ABBR[myTeam?.id] || '',
           position: entry.position?.abbreviation || '?',
           opposingPitcher: opposingPitcher || null,
           venue,
@@ -1418,7 +1427,7 @@ function renderPicks(picks) {
         <div class="player-avatar">${initials(pick.name)}</div>
         <div class="player-info">
           <div class="player-name">${pick.name}</div>
-          <div class="player-sub">${pick.teamAbbr} · ${pick.position} · ${pick.venue}</div>
+          <div class="player-sub">${[pick.teamAbbr, pick.position, pick.venue].filter(Boolean).join(' · ')}</div>
         </div>
         <div class="score-badge ${badgeClass(pick.score)}" data-tip="Power Index: composite of HR rate, ISO, park factor &amp; pitcher matchup">
           <div class="score-num ${scoreClass(pick.score)}">${pick.score}</div>
