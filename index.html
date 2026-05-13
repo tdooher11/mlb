@@ -536,6 +536,111 @@
     pointer-events: none;
   }
 
+  /* Sport tabs */
+  .sport-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .sport-tab {
+    padding: 5px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    font-family: var(--font-body);
+    letter-spacing: 0.02em;
+  }
+  .sport-tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+
+  /* NBA section */
+  .nba-game-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 0.75rem 2rem;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+  .nba-game-pill {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    transition: all 0.15s;
+    font-family: var(--font-body);
+    white-space: nowrap;
+  }
+  .nba-game-pill:hover { border-color: var(--border2); color: var(--text); }
+  .nba-game-pill.active { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  .nba-game-pill.live { border-color: rgba(248,113,113,0.4); color: #f87171; }
+
+  /* NBA pick cards */
+  .nba-prop-row {
+    padding: 0.7rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nba-line-main {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+  }
+  .nba-market-lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .nba-rec {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+  .nba-rec.over  { background: rgba(62,207,142,0.15); color: var(--green); border: 1px solid rgba(62,207,142,0.3); }
+  .nba-rec.under { background: rgba(79,163,232,0.12); color: var(--blue);  border: 1px solid rgba(79,163,232,0.25); }
+  .nba-consensus {
+    padding: 0.5rem 1rem;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nba-consensus .edge-num {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .nba-dk-odds {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-left: auto;
+  }
+
   /* Odds row */
   .card-odds {
     padding: 0.5rem 1rem;
@@ -715,6 +820,10 @@
       <div style="font-size:11px; color: var(--muted); margin-top:2px; font-family: var(--font-body);">MLB Home Run Predictor</div>
     </div>
   </div>
+  <div class="sport-tabs" id="sport-tabs">
+    <button class="sport-tab active" data-sport="mlb">⚾ MLB</button>
+    <button class="sport-tab" data-sport="nba">🏀 NBA</button>
+  </div>
   <div class="header-meta">
     <div id="date-display">Loading...</div>
     <div style="margin-top:3px;" class="data-source">Data: MLB Stats API</div>
@@ -786,6 +895,26 @@
 <div class="disclaimer">
   ⚠️ For entertainment only. Predictions are based on statistical models using current season data from the MLB Stats API.
   Not financial or betting advice. Stats update on page load.
+</div>
+
+<!-- NBA Section -->
+<div id="nba-wrapper" style="display:none">
+  <div class="nba-game-row" id="nba-game-row">
+    <span style="font-size:12px;color:var(--muted)">Loading games...</span>
+  </div>
+  <main>
+    <div id="nba-state-msg" style="text-align:center;padding:4rem 2rem;color:var(--muted)">
+      <div>Select a game above to see DraftKings value props.</div>
+    </div>
+    <div id="nba-picks-container" style="display:none">
+      <div class="section-header">
+        <span class="section-title" id="nba-section-label">NBA — DK Value Props</span>
+        <div class="section-line"></div>
+        <span style="font-size:12px;color:var(--muted)" id="nba-picks-meta"></span>
+      </div>
+      <div id="nba-picks-grid" class="picks-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px"></div>
+    </div>
+  </main>
 </div>
 
 <script>
@@ -1640,6 +1769,228 @@ document.getElementById('date-today-btn').addEventListener('click', () => {
 // Init
 updateDateNav();
 refresh();
+
+// ── NBA ───────────────────────────────────────────────────────────────────
+
+const NBA_MARKETS = [
+  { key: 'player_points',   label: 'PTS' },
+  { key: 'player_rebounds', label: 'REB' },
+  { key: 'player_assists',  label: 'AST' },
+  { key: 'player_threes',   label: '3PM' },
+];
+
+let nbaEvents = [];
+let selectedNBAEventId = null;
+
+async function loadNBAGames() {
+  try {
+    const res = await fetch(
+      `https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=${ODDS_API_KEY}&dateFormat=iso`
+    );
+    if (!res.ok) return [];
+    const all = await res.json();
+    const today = todayStr();
+    const tomorrow = offsetDate(today, 1);
+    return all.filter(e => e.commence_time.startsWith(today) || e.commence_time.startsWith(tomorrow));
+  } catch(e) { return []; }
+}
+
+function findDKEdges(bookmakers) {
+  const dk = bookmakers.find(b => b.key === 'draftkings');
+  if (!dk) return [];
+
+  const picks = [];
+
+  for (const mkt of NBA_MARKETS) {
+    const dkMkt = dk.markets?.find(m => m.key === mkt.key);
+    if (!dkMkt) continue;
+
+    // Build DK player map
+    const dkPlayers = new Map();
+    for (const o of dkMkt.outcomes || []) {
+      if (!o.description) continue;
+      if (!dkPlayers.has(o.description)) dkPlayers.set(o.description, {});
+      dkPlayers.get(o.description)[o.name] = { price: o.price, point: o.point };
+    }
+
+    for (const [player, sides] of dkPlayers) {
+      const dkOver  = sides['Over'];
+      const dkUnder = sides['Under'];
+      if (!dkOver) continue;
+      const dkLine = dkOver.point;
+
+      // Collect other books' lines for same player/market
+      const otherLines = [];
+      for (const book of bookmakers) {
+        if (book.key === 'draftkings') continue;
+        const bMkt = book.markets?.find(m => m.key === mkt.key);
+        if (!bMkt) continue;
+        const o = bMkt.outcomes?.find(o => o.description === player && o.name === 'Over');
+        if (o?.point != null) otherLines.push(o.point);
+      }
+      if (otherLines.length < 2) continue;
+
+      const consensus = otherLines.reduce((a, b) => a + b, 0) / otherLines.length;
+      const roundedConsensus = Math.round(consensus * 2) / 2;
+      const edge = roundedConsensus - dkLine; // positive = DK line lower = over value
+
+      if (Math.abs(edge) < 0.5) continue;
+
+      const rec = edge > 0 ? 'OVER' : 'UNDER';
+      const recOdds = rec === 'OVER' ? dkOver?.price : dkUnder?.price;
+      if (recOdds == null) continue;
+
+      picks.push({
+        player, marketKey: mkt.key, marketLabel: mkt.label,
+        dkLine, dkOdds: recOdds,
+        consensusLine: roundedConsensus,
+        edge: Math.abs(edge), edgeDir: edge > 0 ? 'lower' : 'higher',
+        recommendation: rec, booksCount: otherLines.length,
+      });
+    }
+  }
+
+  picks.sort((a, b) => b.edge - a.edge);
+  return picks.slice(0, 5);
+}
+
+async function loadNBAPropsForEvent(eventId) {
+  const markets = NBA_MARKETS.map(m => m.key).join(',');
+  try {
+    const res = await fetch(
+      `https://api.the-odds-api.com/v4/sports/basketball_nba/events/${eventId}/odds` +
+      `?apiKey=${ODDS_API_KEY}&regions=us&markets=${markets}&oddsFormat=american`
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch(e) { return null; }
+}
+
+function renderNBAPicks(picks, eventLabel) {
+  const grid = document.getElementById('nba-picks-grid');
+  const container = document.getElementById('nba-picks-container');
+  const stateMsg = document.getElementById('nba-state-msg');
+
+  if (!picks.length) {
+    stateMsg.style.display = 'block';
+    stateMsg.innerHTML = `<div>No DraftKings line edges found for this game (books may agree or props not yet posted).</div>`;
+    container.style.display = 'none';
+    return;
+  }
+
+  stateMsg.style.display = 'none';
+  container.style.display = 'block';
+  document.getElementById('nba-section-label').textContent = `NBA — DK Value Props`;
+  document.getElementById('nba-picks-meta').textContent = `${eventLabel} · ${picks.length} edge${picks.length !== 1 ? 's' : ''} found`;
+
+  grid.innerHTML = picks.map((p, i) => {
+    const recCls = p.recommendation === 'OVER' ? 'over' : 'under';
+    const oddsStr = p.dkOdds > 0 ? `+${p.dkOdds}` : `${p.dkOdds}`;
+    const edgeDesc = p.edgeDir === 'lower'
+      ? `DK line is ${p.edge} lower than ${p.booksCount}-book consensus of ${p.consensusLine}`
+      : `DK line is ${p.edge} higher than ${p.booksCount}-book consensus of ${p.consensusLine}`;
+    return `
+      <div class="pick-card tier-2" style="animation-delay:${i*0.05}s">
+        <div class="card-header">
+          <div class="player-avatar">${initials(p.player)}</div>
+          <div class="player-info">
+            <div class="player-name">${p.player}</div>
+            <div class="player-sub">${eventLabel}</div>
+          </div>
+          <div class="nba-rec ${recCls}">${p.recommendation}</div>
+        </div>
+        <div class="nba-prop-row">
+          <div>
+            <div class="nba-line-main">${p.dkLine} <span style="font-size:14px;color:var(--muted)">${p.marketLabel}</span></div>
+            <div class="nba-market-lbl">DraftKings line</div>
+          </div>
+          <div class="nba-dk-odds">${oddsStr}</div>
+        </div>
+        <div class="nba-consensus">
+          <span>${edgeDesc}</span>
+          <span class="edge-num" style="margin-left:auto;white-space:nowrap">+${p.edge} edge</span>
+        </div>
+        <div class="card-footer">
+          <div class="matchup-text">Bet ${p.recommendation} ${p.dkLine} ${p.marketLabel} on DraftKings</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function selectNBAGame(eventId) {
+  selectedNBAEventId = eventId;
+  document.querySelectorAll('.nba-game-pill').forEach(p => p.classList.toggle('active', p.dataset.id === eventId));
+
+  const stateMsg = document.getElementById('nba-state-msg');
+  const container = document.getElementById('nba-picks-container');
+  stateMsg.style.display = 'block';
+  stateMsg.innerHTML = '<div class="spinner"></div><div>Loading props...</div>';
+  container.style.display = 'none';
+
+  const ev = nbaEvents.find(e => e.id === eventId);
+  const label = ev ? `${ev.away_team} @ ${ev.home_team}` : '';
+
+  const data = await loadNBAPropsForEvent(eventId);
+  if (!data) {
+    stateMsg.innerHTML = '<div>Failed to load props. Try again.</div>';
+    return;
+  }
+
+  const picks = findDKEdges(data.bookmakers || []);
+  renderNBAPicks(picks, label);
+}
+
+async function initNBASection() {
+  document.getElementById('nba-state-msg').style.display = 'none';
+  const row = document.getElementById('nba-game-row');
+  row.innerHTML = '<span style="font-size:12px;color:var(--muted)">Loading games...</span>';
+
+  nbaEvents = await loadNBAGames();
+
+  if (!nbaEvents.length) {
+    row.innerHTML = '<span style="font-size:12px;color:var(--muted)">No NBA games found today.</span>';
+    return;
+  }
+
+  row.innerHTML = nbaEvents.map(ev => {
+    const time = new Date(ev.commence_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const label = `${ev.away_team.split(' ').pop()} @ ${ev.home_team.split(' ').pop()} · ${time}`;
+    return `<button class="nba-game-pill" data-id="${ev.id}">${label}</button>`;
+  }).join('');
+
+  row.querySelectorAll('.nba-game-pill').forEach(btn => {
+    btn.addEventListener('click', () => selectNBAGame(btn.dataset.id));
+  });
+
+  // Auto-select Cavs-Pistons if present, otherwise first game
+  const featured = nbaEvents.find(e =>
+    (e.home_team.includes('Cavaliers') || e.away_team.includes('Cavaliers')) ||
+    (e.home_team.includes('Pistons')   || e.away_team.includes('Pistons'))
+  ) || nbaEvents[0];
+  if (featured) selectNBAGame(featured.id);
+}
+
+// ── Sport tab switching ────────────────────────────────────────────────────
+let currentSport = 'mlb';
+const mlbEls = ['#nba-wrapper'];  // elements to HIDE for MLB
+
+document.getElementById('sport-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.sport-tab');
+  if (!btn || btn.dataset.sport === currentSport) return;
+  currentSport = btn.dataset.sport;
+  document.querySelectorAll('.sport-tab').forEach(b => b.classList.toggle('active', b.dataset.sport === currentSport));
+
+  const showMLB = currentSport === 'mlb';
+  // MLB elements
+  document.querySelector('.controls').style.display       = showMLB ? '' : 'none';
+  document.getElementById('summary-bar').style.display    = showMLB ? '' : 'none';
+  document.querySelector('main').style.display            = showMLB ? '' : 'none';
+  document.querySelector('.disclaimer').style.display     = showMLB ? '' : 'none';
+  // NBA elements
+  document.getElementById('nba-wrapper').style.display   = showMLB ? 'none' : 'block';
+
+  if (!showMLB && nbaEvents.length === 0) initNBASection();
+});
 </script>
 </body>
 </html>
